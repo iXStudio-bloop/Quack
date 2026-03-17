@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quack AI — Professional Liquid</title>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;600&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --accent: #00f2ff;
+            --bg: #05050a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+        body { background: var(--bg); color: white; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at 50% 50%, #101025 0%, #05050a 100%); }
+
+        @keyframes slideUp { 0% { transform: translateY(30px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+
+        .screen { position: absolute; width: 100%; height: 100%; display: none; animation: slideUp 0.5s ease-out; }
+        .screen.active { display: flex; }
+
+        .glass-panel { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 25px; }
+
+        /* Чат и Боковая панель */
+        .chat-wrap { display: grid; grid-template-columns: 280px 1fr; width: 100%; height: 100%; }
+        
+        .sidebar { 
+            background: rgba(0,0,0,0.3); padding: 20px; border-right: 1px solid var(--glass-border); 
+            display: flex; flex-direction: column; gap: 15px; 
+        }
+
+        .chat-list { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px; }
+        .chat-list::-webkit-scrollbar { width: 4px; }
+        .chat-list::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+
+        .chat-item { 
+            padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); 
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; transition: 0.2s; border: 1px solid transparent;
+        }
+        .chat-item:hover, .chat-item.active { background: rgba(0,242,255,0.1); border-color: var(--accent); }
+
+        .chat-main { display: flex; flex-direction: column; padding: 30px; position: relative; }
+        .msg-box { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-right: 10px; }
+        .msg-box::-webkit-scrollbar { width: 5px; }
+        .msg-box::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+
+        .msg { padding: 14px 20px; border-radius: 18px; max-width: 80%; line-height: 1.4; animation: slideUp 0.3s ease; }
+        .u-msg { background: var(--glass); align-self: flex-end; }
+        .a-msg { background: rgba(0, 242, 255, 0.07); align-self: flex-start; border: 1px solid rgba(0,242,255,0.1); }
+
+        /* Элементы управления */
+        input { background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 12px 18px; border-radius: 12px; color: white; outline: none; }
+        button { background: linear-gradient(90deg, #00f2ff, #0072ff); border: none; padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer; font-weight: 600; }
+        
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+
+        /* Аккаунты */
+        .acc-screen { align-items: center; justify-content: center; flex-direction: column; }
+        .acc-card { cursor: pointer; transition: 0.3s; padding: 15px; text-align: center; }
+        .acc-card:hover { transform: scale(1.1); }
+        .avatar { width: 70px; height: 70px; border-radius: 50%; background: #1a1a2e; display: flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 10px; border: 1px solid var(--glass-border); }
+
+        .loader { width: 20px; height: 20px; border: 2px solid var(--accent); border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; display: none; margin: 10px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="scr-acc" class="screen active acc-screen">
+        <div class="glass-panel" style="padding: 40px; text-align: center; min-width: 350px;">
+            <h1 style="color: var(--accent); letter-spacing: 4px; margin-bottom: 20px;">QUACK AI</h1>
+            <div id="acc-list" style="display: flex; gap: 20px; justify-content: center; margin-bottom: 25px;"></div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="openReg()">Создать</button>
+                <button style="background: rgba(255,255,255,0.1);" onclick="loginGuest()">Гость</button>
+                <button id="del-btn" style="background: rgba(255,0,0,0.2);" onclick="toggleDel()">🗑️</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scr-chat" class="screen">
+        <div class="chat-wrap">
+            <div class="sidebar">
+                <h2 style="color: var(--accent); font-family: 'Exo 2';">Quack</h2>
+                <button onclick="createNewChat()">+ Новый диалог</button>
+                <div class="chat-list" id="chat-list"></div>
+                <button onclick="showOverlay('ov-img')" style="background: rgba(255,255,255,0.05);">🖼️ Фото-поиск</button>
+                <button onclick="location.reload()" style="background: #ff4d4d22; color: #ff4d4d;">Выход</button>
+            </div>
+            <div class="chat-main">
+                <h3 id="greet" style="margin-bottom: 15px; font-weight: 300;"></h3>
+                <div class="msg-box" id="msg-box"></div>
+                <div id="loader" class="loader"></div>
+                <div class="glass-panel" style="padding: 10px; display: flex; gap: 10px; margin-top: 20px;">
+                    <input type="text" id="userInput" placeholder="Напиши Quack..." style="flex-grow: 1;">
+                    <button onclick="sendMessage()">→</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ov-reg" class="overlay">
+        <div class="glass-panel" style="padding: 30px; width: 340px;">
+            <h3>Новый профиль</h3><br>
+            <input type="text" id="reg-n" placeholder="Имя профиля" oninput="vReg()"><br><br>
+            <input type="text" id="reg-c" placeholder="Как вас называть?" oninput="vReg()"><br><br>
+            <input type="password" id="reg-p" placeholder="Пароль (опционально)"><br><br>
+            <button id="reg-btn" onclick="saveAcc()" disabled style="width: 100%;">Создать</button>
+            <button onclick="hideOverlays()" style="background: none; width: 100%; margin-top: 10px;">Отмена</button>
+        </div>
+    </div>
+
+    <div id="ov-img" class="overlay">
+        <div class="glass-panel" style="width: 80%; max-height: 80vh; overflow-y: auto; padding: 25px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="img-q" placeholder="Что ищем?" style="flex-grow: 1;" onkeydown="if(event.key==='Enter') findImg()">
+                <button onclick="findImg()">Найти</button>
+                <button onclick="hideOverlays()" style="background: rgba(255,255,255,0.1);">X</button>
+            </div>
+            <div id="img-res" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+            <button id="img-more" style="display:none; margin: 20px auto;" onclick="findImg(true)">Найти ещё</button>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "AIzaSyALobM2yg73sbL40nM1Bq1ncwhmp_ApNSw";
+        let db = JSON.parse(localStorage.getItem('quack_pro_db')) || [];
+        let curAcc = null;
+        let curChatIdx = null;
+        let isDel = false;
+
+        function renderAccs() {
+            const list = document.getElementById('acc-list');
+            list.innerHTML = '';
+            db.forEach((a, i) => {
+                list.innerHTML += `<div class="acc-card" onclick="isDel ? delAcc(${i}) : login(${i})">
+                    <div class="avatar">🦆</div>
+                    <span style="font-size: 12px;">${a.name}${isDel?' ❌':''}</span>
+                </div>`;
+            });
+        }
+
+        function vReg() {
+            const n = document.getElementById('reg-n').value;
+            const c = document.getElementById('reg-c').value;
+            document.getElementById('reg-btn').disabled = !(n && c);
+        }
+
+        function saveAcc() {
+            db.push({ name: document.getElementById('reg-n').value, call: document.getElementById('reg-c').value, pass: document.getElementById('reg-p').value, chats: [] });
+            localStorage.setItem('quack_pro_db', JSON.stringify(db));
+            location.reload();
+        }
+
+        function login(idx) {
+            curAcc = db[idx];
+            if(curAcc.pass && prompt("Введите пароль") !== curAcc.pass) return alert("Неверно");
+            showChat();
+        }
+
+        function loginGuest() { curAcc = { name: "Гость", call: "Путник", chats: [] }; showChat(); }
+
+        function showChat() {
+            document.getElementById('scr-acc').classList.remove('active');
+            document.getElementById('scr-chat').classList.add('active');
+            document.getElementById('greet').innerText = `Привет, ${curAcc.call}!`;
+            renderChatList();
+        }
+
+        function createNewChat() {
+            const id = Date.now();
+            curAcc.chats.unshift({ id, name: "Новый чат", msgs: [] });
+            curChatIdx = 0;
+            save();
+            renderChatList();
+            renderMsgs();
+        }
+
+        function renderChatList() {
+            const list = document.getElementById('chat-list');
+            list.innerHTML = '';
+            curAcc.chats.forEach((c, i) => {
+                list.innerHTML += `<div class="chat-item ${i===curChatIdx?'active':''}" onclick="selectChat(${i})">
+                    <span id="chat-name-${i}">${c.name}</span>
+                    <span onclick="renameChat(${i}, event)">✏️</span>
+                </div>`;
+            });
+        }
+
+        function selectChat(i) { curChatIdx = i; renderChatList(); renderMsgs(); }
+
+        function renameChat(i, e) {
+            e.stopPropagation();
+            const newName = prompt("Новое название:", curAcc.chats[i].name);
+            if(newName) { curAcc.chats[i].name = newName; save(); renderChatList(); }
+        }
+
+        function renderMsgs() {
+            const box = document.getElementById('msg-box');
+            box.innerHTML = '';
+            if(curChatIdx === null) return;
+            curAcc.chats[curChatIdx].msgs.forEach(m => {
+                box.innerHTML += `<div class="msg ${m.role==='u'?'u-msg':'a-msg'}">${m.txt}</div>`;
+            });
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const inp = document.getElementById('userInput');
+            const txt = inp.value.trim();
+            if(!txt) return;
+            if(curChatIdx === null) createNewChat();
+
+            const chat = curAcc.chats[curChatIdx];
+            if(chat.msgs.length === 0) chat.name = txt.substring(0, 20) + "...";
+            
+            chat.msgs.push({ role: 'u', txt });
+            inp.value = '';
+            renderMsgs();
+            document.getElementById('loader').style.display = 'block';
+
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: `Ты Quack AI. Создатель: vizquacker и iX. Стиль: дерзкий, короткий. Юзер: ${curAcc.call}. Вопрос: ${txt}` }] }] })
+                });
+                const d = await r.json();
+                const reply = d.candidates[0].content.parts[0].text;
+                chat.msgs.push({ role: 'a', txt: reply });
+                save();
+                renderMsgs();
+                renderChatList();
+            } catch (e) { alert("Ошибка связи с космосом!"); }
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        async function findImg(more = false) {
+            const q = document.getElementById('img-q').value;
+            const res = document.getElementById('img-res');
+            if(!q) return;
+            if(!more) res.innerHTML = '';
+            for(let i=0; i<5; i++) {
+                res.innerHTML += `<img src="https://loremflickr.com/400/300/${q}?random=${Math.random()}">`;
+            }
+            document.getElementById('img-more').style.display = 'block';
+        }
+
+        function save() { if(curAcc.name !== "Гость") localStorage.setItem('quack_pro_db', JSON.stringify(db)); }
+        function openReg() { document.getElementById('ov-reg').style.display = 'flex'; }
+        function hideOverlays() { document.querySelectorAll('.overlay').forEach(o => o.style.display = 'none'); }
+        function toggleDel() { isDel = !isDel; renderAccs(); }
+        function delAcc(i) { db.splice(i,1); save(); renderAccs(); }
+        function showOverlay(id) { document.getElementById(id).style.display = 'flex'; }
+
+        // Enter в основном чате
+        document.getElementById('userInput').onkeydown = (e) => { if(e.key === 'Enter') sendMessage(); };
+
+        renderAccs();
+    </script>
+</body>
+</html>
